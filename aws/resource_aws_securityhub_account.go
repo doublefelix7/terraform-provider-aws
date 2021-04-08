@@ -29,7 +29,7 @@ func resourceAwsSecurityHubAccount() *schema.Resource {
 			"enable_default_standards": {
 				Type:     schema.TypeBool,
 				Optional: true,
-				Default:  true,
+				Computed: true,
 			},
 		},
 	}
@@ -38,11 +38,13 @@ func resourceAwsSecurityHubAccount() *schema.Resource {
 func resourceAwsSecurityHubAccountCreate(d *schema.ResourceData, meta interface{}) error {
 	conn := meta.(*AWSClient).securityhubconn
 
-	enableDefaultStandards := d.Get("enable_default_standards").(bool)
+	input := &securityhub.EnableSecurityHubInput{}
 
-	_, err := conn.EnableSecurityHub(&securityhub.EnableSecurityHubInput{
-		EnableDefaultStandards: aws.Bool(enableDefaultStandards),
-	})
+	if v, ok := d.GetOk("enable_default_standards"); ok {
+		input.EnableDefaultStandards = aws.Bool(v.(bool))
+	}
+
+	_, err := conn.EnableSecurityHub(input)
 
 	if err != nil {
 		return fmt.Errorf("error enabling Security Hub for account: %w", err)
@@ -50,7 +52,7 @@ func resourceAwsSecurityHubAccountCreate(d *schema.ResourceData, meta interface{
 
 	d.SetId(meta.(*AWSClient).accountid)
 
-	if enableDefaultStandards {
+	if aws.BoolValue(input.EnableDefaultStandards) {
 		if err := waiter.StandardsSubscriptionsReady(conn); err != nil {
 			return fmt.Errorf("error waiting for Security Hub default standards to be enabled for account: %w", err)
 		}
